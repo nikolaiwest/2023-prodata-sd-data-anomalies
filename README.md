@@ -46,8 +46,9 @@ The work on this repository is supported by supported by the **German Ministry o
 
 Contributions are welcome. If you find a bug or have an enhancement in mind, please open an issue or submit a pull request.
 
-![Funding BMBF](images/Förderhinweis_BMBF.jpg){: width="400px"}
-![Funding EU](images/to/Förderhinweis_EU.jpg){: width="400px"}
+![Funding BMBF](images/Förderhinweis_BMBF.jpg){: width="200px"}
+
+![Funding EU](images/Förderhinweis_EU.jpg){: width="200px"}
 
 ## License
 The project is currently licensed under the [MIT License](https://github.com/nikolaiwest/2023-prodata-sd-data-anomalies/blob/main/license).
