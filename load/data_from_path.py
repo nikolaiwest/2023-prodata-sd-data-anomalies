@@ -24,8 +24,12 @@ class DataFromPath(BaseLoader):
         None
         """
         super().__init__()
+        # Load a list of run ids from the provided path or paths
         self.load_run_ids(path=path)
+        # Load every screw run as a ScrewRun to self.all_screw_runs
         self.load_runs()
+        # Update all metrics after loading the screw runs
+        self.update()
 
     def load_run_ids(self, path: Union[str, List[str]]) -> None:
         """
