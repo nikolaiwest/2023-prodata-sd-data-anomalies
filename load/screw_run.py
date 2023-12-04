@@ -1,6 +1,8 @@
 import os
 import json
-from typing import Union, Dict, Any
+
+from itertools import chain
+from typing import Union, List, Dict, Any
 
 from load.screw_step import ScrewStep
 
@@ -30,8 +32,8 @@ class ScrewRun:
         None
         """
         # Set name and path
-        self.name = name
-        self.path = path
+        self.name: str = name
+        self.path: str = path
 
         # Load data from JSON file
         self.set_attributes_from_json()
@@ -55,6 +57,12 @@ class ScrewRun:
         self.code = str(json_dict["id code"])
         # Get screw steps as list of ScrewStrep
         self.screw_steps = [ScrewStep(step) for step in json_dict["tightening steps"]]
+
+        # Get time series data of all steps of the screw run
+        self.time_values = self.get_run_values("time values")
+        self.angle_values = self.get_run_values("angle values")
+        self.torque_values = self.get_run_values("torque values")
+        self.gradient_values = self.get_run_values("gradient values")
 
         # For sake of documentation, the remaining attributes:
         if False:
@@ -172,3 +180,13 @@ class ScrewRun:
             raise json.JSONDecodeError(
                 f"Error decoding JSON file '{json_file_path}': {e}",
             ) from e
+
+    def get_dmc(self) -> str:
+        return self.code
+
+    def get_run_values(self, value: str) -> List[float]:
+        return list(
+            chain.from_iterable(
+                step.get_graph_values(value) for step in self.screw_steps
+            )
+        )

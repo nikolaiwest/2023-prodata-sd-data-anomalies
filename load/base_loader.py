@@ -28,9 +28,13 @@ class BaseLoader(ABC):
         # Counter variables of OK and NOK labels in the data
         self.count_of_ok: int = 0
         self.count_of_nok: int = 0
+        self.count_of_all: int = 0
         # Dicts to track the data matrix codes (DMC) in the data set
         self.counts_of_dmc: dict = {}  # Counts of individual DMCs
         self.labels_of_dmc: Dict[List] = {}  # Lists of their label ("OK" vs. "NOK")
+        self.ids_of_dmc: Dict[
+            List
+        ] = {}  # List of their IDs (aka file names, e.g. "Ch_000...json")
         # Counter variables to track the number of runs and individual DMCs
         self.num_of_runs: int = 0
         self.num_of_dmcs: int = 0
@@ -97,6 +101,7 @@ class BaseLoader(ABC):
                 raise ValueError(
                     f"Unkown label {screw_run.result} in screw run {screw_run.name}"
                 )
+        self.count_of_all = self.count_of_ok + self.count_of_nok
 
     def update_dmc_dics(self) -> None:
         for screw_run in self.all_runs:
@@ -104,9 +109,11 @@ class BaseLoader(ABC):
             if screw_run.code not in self.counts_of_dmc.keys():
                 self.counts_of_dmc[screw_run.code] = 1
                 self.labels_of_dmc[screw_run.code] = [screw_run.result]
+                self.ids_of_dmc[screw_run.code] = [screw_run.name]
             else:
                 self.counts_of_dmc[screw_run.code] += 1
                 self.labels_of_dmc[screw_run.code] += [screw_run.result]
+                self.ids_of_dmc[screw_run.code] += [screw_run.name]
 
     def update_num_of_runs(self) -> None:
         """
@@ -151,6 +158,12 @@ class BaseLoader(ABC):
         plt.show()
 
     def plot_dmc_label_ratio(self):
+        """
+        Plot the ratio of 'OK' and 'NOK' observations with regard to the cycle number.
+
+        Returns:
+        None
+        """
         # TODO: Check if all lists are of same length
         # ...
 
@@ -208,6 +221,12 @@ class BaseLoader(ABC):
         plt.show()
 
     def plot_dmc_label_heatmap(self):
+        """
+        Plot a heatmap of 'OK' and 'NOK' observations for the first and second screw holes.
+
+        Returns:
+        None
+        """
         # Sample data for heatmaps
         labels_even = []
         labels_odd = []
@@ -247,5 +266,45 @@ class BaseLoader(ABC):
         plt.colorbar()
 
         # Adjust layout to prevent clipping of titles and show plot
-        # plt.tight_layout()
+        plt.tight_layout()
+        plt.show()
+
+    def plot_hist_run_lengths(self, how: str = "count", bins: int = 25):
+        """
+        Plot a histogram of run lengths or maximum angles.
+
+        Parameters:
+        - how (str): Either "count" for run lengths or "angle" for maximum angles.
+        - bins (int): Number of bins in the histogram.
+
+        Returns:
+        None
+        """
+        # Input validation
+        if how not in ["count", "angle"]:
+            raise ValueError(f"Invalid value for 'how': {how}. Use 'count' or 'angle'.")
+
+        # Check if there are any runs to analyze
+        if not self.all_runs:
+            print("No runs to plot the histogram.")
+            return
+
+        # Hist based on user selection
+        if how == "count":
+            # Get the number of recorded values for all runs as a list
+            run_lengths = [len(run.time_values) for run in self.all_runs]
+            title = "Histogram of steps in time series"
+            xlabel = "Length of all screw runs"
+        elif how == "angle":
+            # Get the max angle of all screw runs as a list
+            run_lengths = [max(run.angle_values) for run in self.all_runs]
+            title = "Histogram of max angles"
+            xlabel = "Max angle of all screw runs [degree]"
+
+        # Plot the histogram
+        plt.hist(run_lengths, bins=bins, color="blue", edgecolor="black", alpha=0.7)
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel("Number of occurrences")
+        plt.grid(axis="y", linestyle="--", alpha=0.7)
         plt.show()
