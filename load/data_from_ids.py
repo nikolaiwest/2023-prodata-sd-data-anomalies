@@ -1,6 +1,6 @@
 from typing import List
 
-from base_loader import BaseLoader
+from .base_loader import BaseLoader
 
 
 class DataFromIds(BaseLoader):
@@ -9,7 +9,7 @@ class DataFromIds(BaseLoader):
     A loader that takes a list of file names and loads them from the raw data source.
     """
 
-    def __init__(self, ids: List(str)) -> None:
+    def __init__(self, ids: list) -> None:
         super.__init__()
 
         self.all_runs = ids
