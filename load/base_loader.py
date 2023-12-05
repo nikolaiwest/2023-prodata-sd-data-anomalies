@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
+from tqdm import tqdm
 from typing import List, Union, Dict
 
 from .screw_run import ScrewRun
-
-from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 
 class BaseLoader(ABC):
@@ -38,6 +36,11 @@ class BaseLoader(ABC):
         # Counter variables to track the number of runs and individual DMCs
         self.num_of_runs: int = 0
         self.num_of_dmcs: int = 0
+        # Nested lists of time series values from all screw runs
+        self.all_time_values: List[List[float]] = [[]]
+        self.all_angle_values: List[List[float]] = [[]]
+        self.all_torque_values: List[List[float]] = [[]]
+        self.all_gradient_values: List[List[float]] = [[]]
 
     @abstractmethod
     def load_run_ids(self, source: Union[str, List[Union[str, int]]]) -> None:
@@ -51,31 +54,15 @@ class BaseLoader(ABC):
         """
         pass
 
-    def load_runs(self):
+    def load_and_update(self):
+        self.load_runs_from_ids()
+        self.update()
+
+    def load_runs_from_ids(self):
         self.all_runs = [
             ScrewRun(name=run_id)
             for run_id in tqdm(self.all_run_ids, desc="Loading screw run data")
         ]
-
-    def get_run_ids(self) -> List[str]:
-        """
-        Get the loaded run ids.
-
-        Returns:
-            List[str]
-                The loaded data
-        """
-        return self.all_run_ids
-
-    def get_screw_runs(self) -> List[ScrewRun]:
-        """
-        Get the loaded runs.
-
-        Returns:
-            List[ScrewRun]
-                The loaded data
-        """
-        return self.all_runs
 
     def update(self) -> None:
         """
@@ -89,6 +76,8 @@ class BaseLoader(ABC):
         self.update_num_of_runs()
         # Update the number of DMCs
         self.update_num_of_dmcs()
+        # Update all lists of time series from screw runs
+        self.update_series_values()
 
     def update_label_counts(self) -> None:
         for screw_run in self.all_runs:
@@ -145,166 +134,50 @@ class BaseLoader(ABC):
                 f"The number of dmc labels {num_of_dmcs_by_label} does not match the number of dmcs by count {num_of_dmcs}"
             )
 
-    def plot_dmc_counts(self) -> None:
-        # Get values to plot from the dict counts_of_dmc
-        x_values = list(self.counts_of_dmc.keys())
-        y_values = list(self.counts_of_dmc.values())
-        # Use matplotlib to plot and show the plot
-        plt.bar(x=x_values, height=y_values)
-        plt.xlabel("Data Matrix Code (DMC) of the workpieces")
-        plt.ylabel("Number of occurence")
-        plt.xticks(rotation=45, ha="right")
-        plt.title("Number of screw runs for each workpiece by DMC")
-        plt.show()
-
-    def plot_dmc_label_ratio(self):
+    def update_series_values(self) -> None:
         """
-        Plot the ratio of 'OK' and 'NOK' observations with regard to the cycle number.
+        Update the series variables based on the corresponding ScrewRuns in all_runs.
+        """
+        # List of strings representing different series values
+        series_values_as_str = [
+            "time values",
+            "angle values",
+            "torque values",
+            "gradient values",
+        ]
+
+        # List of lists containing the original series values
+        series_values = [
+            self.all_time_values,
+            self.all_angle_values,
+            self.all_torque_values,
+            self.all_gradient_values,
+        ]
+
+        # Iterate through the series values and update them based on run values
+        for i, val_as_str in enumerate(series_values_as_str):
+            # Fetch run values for the current series and update the original list
+            series_values[i][:] = [
+                self.all_runs[j].get_run_values(val_as_str)
+                for j in range(self.count_of_all)
+            ]
+
+    def get_run_ids(self) -> List[str]:
+        """
+        Get the loaded run ids.
 
         Returns:
-        None
+            List[str]
+                The loaded data
         """
-        # TODO: Check if all lists are of same length
-        # ...
+        return self.all_run_ids
 
-        # Get the max length; e.g. 50 for scenario 1 and 2 -> has to be even
-        max_length = max([len(label) for label in self.labels_of_dmc.values()])
-
-        # Calculate the ratio of 'OK' and 'NOK' for each index across the lists
-        ratios_OK = []
-        ratios_NOK = []
-
-        # Since every workpiece holds two screws, we have to look at the even
-        # and the odd indices of, thus cutting in half the number of x values.
-        for i in range(0, max_length, 2):  # "0", "2", "4", ... "24"
-            # Get the number of OK results for one workpiece (two screw runs)
-            ok_count = sum(
-                self.labels_of_dmc[key][i] == "OK" for key in self.labels_of_dmc
-            ) + sum(
-                self.labels_of_dmc[key][i + 1] == "OK" for key in self.labels_of_dmc
-            )
-
-            # Get the number of NOK results for one workpiece (again, two screw runs)
-            nok_count = sum(
-                self.labels_of_dmc[key][i] == "NOK" for key in self.labels_of_dmc
-            ) + sum(
-                self.labels_of_dmc[key][i + 1] == "NOK" for key in self.labels_of_dmc
-            )
-            # Get ratio of OK results for the current workpiece
-            total_count = ok_count + nok_count
-            ratio_OK = ok_count / total_count if total_count != 0 else 0
-            ratio_NOK = nok_count / total_count if total_count != 0 else 0
-            # Finally, append the current ratios to the result lists
-            ratios_OK.append(ratio_OK)
-            ratios_NOK.append(ratio_NOK)
-
-        # Get x values to plot from the dict labels_of_dmc
-        x_values = range(int(max_length / 2))  # "50"
-
-        # Use matplotlib to plot and show the plot
-        plt.bar(
-            x=x_values,
-            height=ratios_OK,
-            label="OK",
-            color="forestgreen",
-        )
-        plt.bar(
-            x=x_values,
-            height=ratios_NOK,
-            label="NOK",
-            bottom=ratios_OK,
-            color="firebrick",
-        )
-        plt.xlabel("Number of screw cycles per workpiece")
-        plt.ylabel("Ratio of OK and NOK observations")
-        plt.title("Ratio of OK and NOK runs with regard to the cycle number")
-        plt.show()
-
-    def plot_dmc_label_heatmap(self):
+    def get_screw_runs(self) -> List[ScrewRun]:
         """
-        Plot a heatmap of 'OK' and 'NOK' observations for the first and second screw holes.
+        Get the loaded runs.
 
         Returns:
-        None
+            List[ScrewRun]
+                The loaded data
         """
-        # Sample data for heatmaps
-        labels_even = []
-        labels_odd = []
-
-        # Get the length of the workpiece with the most screw runs (and thus most labels)
-        max_length = max([len(label) for label in self.labels_of_dmc.values()])
-
-        # Iterate all entries of the label dict by index
-        for i in range(max_length):
-            label_even = []
-            label_odd = []
-            for list_of_labels in self.labels_of_dmc.values():
-                if i % 2 == 0:  # is even
-                    label_even.append(1 if list_of_labels[i] == "OK" else -1)
-                else:  # is odd
-                    label_odd.append(1 if list_of_labels[i] == "OK" else -1)
-            # Add new list to label results
-            if i % 2 == 0:
-                labels_even.append(label_even)
-            else:
-                labels_odd.append(label_odd)
-
-        # Transpose data for better visualisation (optional)
-        labels_even = list(map(list, zip(*labels_even)))
-        labels_odd = list(map(list, zip(*labels_odd)))
-
-        # Create a subplot with 1 row and 2 columns
-        plt.subplot(1, 2, 1)
-        plt.imshow(labels_even, cmap="RdYlGn")
-        plt.title("First screw hole (left)")
-        plt.colorbar()
-
-        # Create another subplot in the same row
-        plt.subplot(1, 2, 2)
-        plt.imshow(labels_odd, cmap="RdYlGn")
-        plt.title("Second screw hole (right)")
-        plt.colorbar()
-
-        # Adjust layout to prevent clipping of titles and show plot
-        plt.tight_layout()
-        plt.show()
-
-    def plot_hist_run_lengths(self, how: str = "count", bins: int = 25):
-        """
-        Plot a histogram of run lengths or maximum angles.
-
-        Parameters:
-        - how (str): Either "count" for run lengths or "angle" for maximum angles.
-        - bins (int): Number of bins in the histogram.
-
-        Returns:
-        None
-        """
-        # Input validation
-        if how not in ["count", "angle"]:
-            raise ValueError(f"Invalid value for 'how': {how}. Use 'count' or 'angle'.")
-
-        # Check if there are any runs to analyze
-        if not self.all_runs:
-            print("No runs to plot the histogram.")
-            return
-
-        # Hist based on user selection
-        if how == "count":
-            # Get the number of recorded values for all runs as a list
-            run_lengths = [len(run.time_values) for run in self.all_runs]
-            title = "Histogram of steps in time series"
-            xlabel = "Length of all screw runs"
-        elif how == "angle":
-            # Get the max angle of all screw runs as a list
-            run_lengths = [max(run.angle_values) for run in self.all_runs]
-            title = "Histogram of max angles"
-            xlabel = "Max angle of all screw runs [degree]"
-
-        # Plot the histogram
-        plt.hist(run_lengths, bins=bins, color="blue", edgecolor="black", alpha=0.7)
-        plt.title(title)
-        plt.xlabel(xlabel)
-        plt.ylabel("Number of occurrences")
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-        plt.show()
+        return self.all_runs

@@ -16,10 +16,8 @@ class DataFromDmc(BaseLoader):
         super().__init__()
         # Load a list of run ids that contain the provided DMCs
         self.load_run_ids(dmcs_to_load)
-        # Load every screw run as a ScrewRun to self.all_screw_runs
-        self.load_runs()
-        # Update all metrics after loading the screw runs
-        self.update()
+        # Load screw runs and update loader
+        self.load_and_update()
 
     def load_run_ids(self, dmcs_to_load) -> None:
         self.dmcs_to_load = dmcs_to_load
