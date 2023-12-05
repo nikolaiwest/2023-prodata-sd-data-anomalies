@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from tqdm import tqdm
+from numpy import nan, nanmean, nanvar
 from typing import List, Union, Dict
 
 from .screw_run import ScrewRun
@@ -36,11 +37,6 @@ class BaseLoader(ABC):
         # Counter variables to track the number of runs and individual DMCs
         self.num_of_runs: int = 0
         self.num_of_dmcs: int = 0
-        # Nested lists of time series values from all screw runs
-        self.all_time_values: List[List[float]] = [[]]
-        self.all_angle_values: List[List[float]] = [[]]
-        self.all_torque_values: List[List[float]] = [[]]
-        self.all_gradient_values: List[List[float]] = [[]]
 
     @abstractmethod
     def load_run_ids(self, source: Union[str, List[Union[str, int]]]) -> None:
@@ -76,8 +72,6 @@ class BaseLoader(ABC):
         self.update_num_of_runs()
         # Update the number of DMCs
         self.update_num_of_dmcs()
-        # Update all lists of time series from screw runs
-        self.update_series_values()
 
     def update_label_counts(self) -> None:
         for screw_run in self.all_runs:
@@ -134,33 +128,17 @@ class BaseLoader(ABC):
                 f"The number of dmc labels {num_of_dmcs_by_label} does not match the number of dmcs by count {num_of_dmcs}"
             )
 
-    def update_series_values(self) -> None:
-        """
-        Update the series variables based on the corresponding ScrewRuns in all_runs.
-        """
-        # List of strings representing different series values
-        series_values_as_str = [
-            "time values",
-            "angle values",
-            "torque values",
-            "gradient values",
-        ]
+    def get_time_values(self) -> List[List[float]]:
+        return [run.time_values for run in self.all_runs]
 
-        # List of lists containing the original series values
-        series_values = [
-            self.all_time_values,
-            self.all_angle_values,
-            self.all_torque_values,
-            self.all_gradient_values,
-        ]
+    def get_angle_values(self) -> List[List[float]]:
+        return [run.angle_values for run in self.all_runs]
 
-        # Iterate through the series values and update them based on run values
-        for i, val_as_str in enumerate(series_values_as_str):
-            # Fetch run values for the current series and update the original list
-            series_values[i][:] = [
-                self.all_runs[j].get_run_values(val_as_str)
-                for j in range(self.count_of_all)
-            ]
+    def get_torque_values(self) -> List[List[float]]:
+        return [run.torque_values for run in self.all_runs]
+
+    def get_gradient_values(self) -> List[List[float]]:
+        return [run.gradient_values for run in self.all_runs]
 
     def get_run_ids(self) -> List[str]:
         """
@@ -181,3 +159,27 @@ class BaseLoader(ABC):
                 The loaded data
         """
         return self.all_runs
+
+    def get_run_results(self) -> List[str]:
+        """
+        Get the labels of the screw data (e.g. "OK" or "NOK").
+
+        Returns:
+            List[str]
+                The labels of every loaded screw run.
+        """
+        return [run.result for run in self.all_runs]
+
+    def aggregate_all_series(self, list_of_series: List[List[float]]) -> List[float]:
+        # Find the length of the longest time series
+        max_len = max(map(len, list_of_series))
+
+        # Pad all time series with NaN values to make them equal length
+        padded_list_of_series = [
+            series + [nan] * (max_len - len(series)) for series in list_of_series
+        ]
+
+        # Calculate  and return the mean for each time point, ignoring NaN values
+        return nanmean(padded_list_of_series, axis=0), nanvar(
+            padded_list_of_series, axis=0
+        )

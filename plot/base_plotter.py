@@ -100,7 +100,7 @@ class BasePlotter:
 
         return ok_count, nok_count
 
-    def plot_dmc_label_heatmap(self):
+    def plot_dmc_label_heatmap(self) -> None:
         """
         Plot a heatmap of 'OK' and 'NOK' observations for the first and second screw holes.
         """
@@ -151,7 +151,7 @@ class BasePlotter:
 
         return labels_even, labels_odd
 
-    def plot_hist_run_lengths(self, how: str = "count", bins: int = 25):
+    def plot_hist_run_lengths(self, how: str = "count", bins: int = 25) -> None:
         """
         Plot a histogram of run lengths or maximum angles.
         Args:
@@ -188,7 +188,7 @@ class BasePlotter:
         elif how == "angle":
             return [max(run.angle_values) for run in self.base_loader.all_runs]
 
-    def get_plot_labels(self, how):
+    def get_plot_labels(self, how) -> None:
         """
         Get the title and xlabel for the histogram plot.
         Args:
@@ -200,3 +200,47 @@ class BasePlotter:
             return "Histogram of steps in time series", "Length of all screw runs"
         elif how == "angle":
             return "Histogram of max angles", "Max angle of all screw runs [degree]"
+
+    def plot_avg(self):
+        mean_torque, var_torque = self.base_loader.aggregate_all_series(
+            self.base_loader.get_torque_values()
+        )
+        mean_time, var_time = self.base_loader.aggregate_all_series(
+            self.base_loader.get_time_values()
+        )
+        mean_angle, var_angle = self.base_loader.aggregate_all_series(
+            self.base_loader.get_angle_values()
+        )
+
+        _, ax = plt.subplots()
+        ax.fill_between(
+            mean_angle, mean_torque + var_torque, mean_torque - var_torque, alpha=0.25
+        )
+        ax.plot(mean_angle, mean_torque)
+        plt.xlabel("Angle [degree]")
+        plt.ylabel("Torque [in Nm]")
+        plt.title("Average screw run (and variance)")
+        plt.show()
+
+    def plot_all(self):
+        colors = {
+            "OK": "forestgreen",
+            "NOK": "firebrick",
+        }
+        # Iterate all screw runs loaded
+        for torques, angles, results in zip(
+            self.base_loader.get_torque_values(),
+            self.base_loader.get_angle_values(),
+            self.base_loader.get_run_results(),
+        ):
+            plt.plot(
+                angles,
+                torques,
+                color=colors[results],
+                alpha=0.5,
+                linewidth=0.5,
+            )
+        plt.xlabel("Angle [degree]")
+        plt.ylabel("Torque [in Nm]")
+        plt.title("Visualization of all screw runs")
+        plt.show()
